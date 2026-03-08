@@ -1,1 +1,4 @@
-import requests
+requests
+# add any other packages your bot needs, one per line, e.g.
+python-telegram-bot    # if you're using this
+python-dotenv
