@@ -1,3 +1,2 @@
 requests
-python-dotenv
-# whatever else you import
+pyTelegramBotAPI
