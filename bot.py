@@ -1,38 +1,33 @@
+last_seen_mint = None
+
 def check_for_new_tokens():
     global last_seen_mint
     try:
-        # Working public endpoint for recent Pump.fun activity (trades/tokens)
-        # From PumpPortal (2026) - returns recent trades with mints
+        # Working public endpoint for recent Pump.fun trades (includes new tokens)
         r = requests.get("https://pumpportal.fun/api/trade-recent?limit=10")
-        if not r.ok:
-            print(f"API call failed: {r.status_code} - {r.text[:300]}...")  # show error snippet
-            return
+        r.raise_for_status()  # raise if not 200
 
-        trades = r.json()  # assume array of recent trades
+        trades = r.json()
 
-        for trade in reversed(trades[:5]):  # last 5, oldest first to catch new
+        for trade in reversed(trades):
             mint = trade.get("mint")
-            if not mint:
+            if not mint or (last_seen_mint and mint == last_seen_mint):
                 continue
 
-            # Skip if we already alerted this mint
-            if last_seen_mint and mint == last_seen_mint:
-                continue
-
-            # Extract data (adapt based on actual response format - check logs)
-            name = trade.get("name", trade.get("symbol", "Unknown"))
+            name = trade.get("name", "Unknown")
+            symbol = trade.get("symbol", "")
             text = (
                 f"*New Pump.fun Activity!* 🚀\n"
-                f"Token: *{name}*\n"
-                f"CA: `{mint[:6]}...{mint[-4:]}`\n"
+                f"Token: *{name}* ({symbol})\n"
+                f"CA: `{mint[:6]}...{mint[-6:]}`\n"
                 f"[View on Pump.fun](https://pump.fun/{mint})\n"
-                f"Recent trade detected - check it out!"
+                f"Recent trade detected!"
             )
-
             send_message(text)
-            print(f"Alert sent for mint: {mint} (name: {name})")
+            print(f"Alert sent: {name} - {mint}")
+            last_seen_mint = mint
 
-            last_seen_mint = mint  # update to avoid repeats
-
+    except requests.exceptions.RequestException as e:
+        print(f"API request failed: {str(e)}")
     except Exception as e:
-        print(f"Error in check_for_new_tokens: {str(e)}")
+        print(f"Unexpected error: {str(e)}")
