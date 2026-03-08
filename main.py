@@ -1,90 +1,80 @@
-import requests
 import time
+import requests
+# Likely one of these for Telegram (adjust based on your imports)
+# from telebot import TeleBot  # if using pyTelegramBotAPI
+# or
+# from telethon import TelegramClient, events, sync  # if using Telethon
 
-# ────────────────────────────────────────────────
-#   Telegram bot credentials – KEEP SECRET!
-# ────────────────────────────────────────────────
-TOKEN = "8704324795:AAFEwg5zU-jCRDbTtHkozpR6vjyuMqaLWrc"
-CHAT_ID = "-1003205569356"
-BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
+# =====================================
+# CONFIG - SET THESE AS ENVIRONMENT VARIABLES ON RAILWAY!
+# =====================================
+MORALIS_API_KEY = "your_moralis_api_key_here"  # From moralis.io dashboard
+BOT_TOKEN = "your_telegram_bot_token_here"     # From @BotFather
+CHANNEL_ID = -100103205569356                  # Your alert channel
 
-# ────────────────────────────────────────────────
-#   Moralis API key (get free at moralis.com)
-#   Paste your key here ↓
-# ────────────────────────────────────────────────
-MORALIS_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjU1NzExMjE0LTVkODMtNDA2Ny1iYTg2LWNhZmNlNTFhN2YzOCIsIm9yZ0lkIjoiNTA0NDg0IiwidXNlcklkIjoiNTE5MDkyIiwidHlwZUlkIjoiMDlhMTlmZTEtNTM0Ny00MjAzLTg2NDAtNDY0MTM1MjQxYmYxIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NzMwMDc2MDUsImV4cCI6NDkyODc2NzYwNX0.akkGXsOQgdPfN3e_4WHw9sVUcpv8xgV4TC6hWU_E2eQ"
+# If using pyTelegramBotAPI (simpler):
+bot = TeleBot(BOT_TOKEN)
 
-# Remember last alerted mint to avoid duplicates
-last_seen_mint = None
+# If using Telethon (async/MTProto - more powerful but needs API_ID/API_HASH):
+# client = TelegramClient('session', API_ID, API_HASH)
+# client.start(bot_token=BOT_TOKEN)
 
-def send_message(text):
-    """Send alert to Telegram channel/group"""
-    url = f"{BASE_URL}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": text,
-    }
+POLL_INTERVAL = 30  # seconds between checks
+
+last_seen_mint = None  # Global to track the latest processed mint
+
+def send_alert(text):
+    """Send message to your Telegram channel."""
     try:
-        response = requests.post(url, json=payload, timeout=10)
-        response.raise_for_status()
-        print("Message sent successfully")
+        bot.send_message(CHANNEL_ID, text, parse_mode='HTML')  # or 'Markdown'
+        print(f"Alert sent: {text[:50]}...")
     except Exception as e:
-        print("Send failed:", str(e))
+        print(f"Telegram send failed: {e}")
 
+print("Pump.fun Alert Bot starting...")
 
-def check_for_new_tokens():
+while True:
     """Fetch new Pump.fun tokens using Moralis API"""
     global last_seen_mint
     try:
-        print("Fetching new Pump.fun tokens from Moralis...")
+        print("Fetching new Pump.fun tokens...")
         headers = {"X-API-Key": MORALIS_API_KEY}
         r = requests.get(
-            "https://solana-gateway.moralis.io/token/mainnet/pump-fun/new?limit=5",
+            "https://solana-gateway.moralis.io/token/mainnet/exchange/pumpfun/new",
             headers=headers,
-            timeout=15
+            timeout=15,
         )
         r.raise_for_status()
-
         data = r.json()
-        tokens = data.get("result", [])  # Moralis returns {"result": [...]}
-
+        tokens = data.get("result", [])
         print(f"Received {len(tokens)} new tokens")
 
-        for token in reversed(tokens):
+        for token in reversed(tokens):  # Process newest first
             mint = token.get("mint")
             if not mint or (last_seen_mint and mint == last_seen_mint):
-                continue
+                continue  # Skip if no mint or already processed
 
             name = token.get("name", "Unknown")
-            symbol = token.get("symbol", "")
+            symbol = token.get("symbol", "???")
+            # Add more fields if available in response, e.g. description, image_uri, etc.
 
             text = (
-                f"New Pump.fun Token Launched! 🚀\n"
+                f"<b>New Pump.fun Token Launch!</b>\n"
                 f"Token: {name} ({symbol})\n"
-                f"CA: {mint[:6]}...{mint[-6:]}\n"
-                f"Link: https://pump.fun/{mint}"
+                f"CA: <code>{mint[:6]}...{mint[-4:]}</code>\n"
+                # Optional extras:
+                # f"Description: {token.get('description', 'N/A')}\n"
+                # f"Buy: https://pump.fun/{mint}\n"
             )
 
-            send_message(text)
-            print(f"Alert sent → {name} ({mint})")
+            send_alert(text)
+
+            # Update to the newest one after processing
             last_seen_mint = mint
 
     except requests.exceptions.RequestException as e:
-        print(f"Moralis API error: {str(e)}")
-        if 'r' in locals():
-            print("Response preview:", r.text[:300])
+        print(f"API request failed: {e}")
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
+        print(f"Unexpected error: {e}")
 
-
-if __name__ == "__main__":
-    print("Bot started - monitoring new Pump.fun tokens via Moralis...")
-    
-    while True:
-        try:
-            check_for_new_tokens()
-        except Exception as e:
-            print(f"Main loop caught error (bot keeps running): {str(e)}")
-        
-        print(f"Alive - next check in 60 seconds → {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        time.sleep(60)
+    time.sleep(POLL_INTERVAL)
