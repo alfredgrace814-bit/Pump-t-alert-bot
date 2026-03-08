@@ -45,4 +45,4 @@ def check_for_new_tokens():
         if 'r' in locals():
             print("Response preview:", r.text[:300])
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")o
+        print(f"Unexpected error: {str(e)}")
