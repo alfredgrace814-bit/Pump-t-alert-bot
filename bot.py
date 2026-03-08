@@ -11,7 +11,7 @@ def send_message(text):
     payload = {
         "chat_id": CHAT_ID,
         "text": text,
-        "parse_mode": "MarkdownV2"
+    
     }
     response = requests.post(url, json=payload)
     print(response.json())  # For debugging
