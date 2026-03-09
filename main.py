@@ -85,4 +85,24 @@ while True:
 
             name   = token.get("name",   "Unknown")
             symbol = token.get("symbol", "???")
-            # uri    = token.get("uri
+            # uri    = token.get("uri",    None)  # optional - uncomment if you need metadata later
+
+            message = (
+                f"<b>🚀 New Pump.fun Token Launched!</b>\n\n"
+                f"• Name: <b>{name}</b>\n"
+                f"• Symbol: <b>{symbol}</b>\n"
+                f"• CA: <code>{mint[:6]}...{mint[-4:]}</code>\n\n"
+                f"https://pump.fun/{mint}"
+            )
+
+            send_message(message)
+
+            # Update last seen mint
+            last_seen_mint = mint
+
+    except requests.exceptions.RequestException as e:
+        print(f"[API ERROR] {e}")
+    except Exception as e:
+        print(f"[MAIN LOOP ERROR] {type(e).__name__}: {e}")
+
+    time.sleep(30)
